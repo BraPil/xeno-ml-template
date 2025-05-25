@@ -1,0 +1,26 @@
+[tool.poetry]
+name        = "xeno-ml"
+version     = "0.0.1"
+description = "Prototypes for xenobot segmentation and evolutionary design"
+authors     = ["Brandt Pileggi <your.email@example.com>"]
+packages    = [{ include = "xeno_ml", from = "src" }]
+
+[tool.poetry.dependencies]
+python        = "^3.11"
+numpy         = "^1.26"
+pandas        = "^2.2"
+opencv-python = "^4.10"
+torch         = { version = "^2.3", extras = ["cpu"] }   # change to cuda11 later
+cellpose      = "^2.2"
+scikit-image  = "^0.23"
+mlflow        = "^2.12"
+deap          = "^1.4"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.1"
+ruff   = "^0.4"
+mypy   = "^1.10"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

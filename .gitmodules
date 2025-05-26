@@ -1,0 +1,3 @@
+[submodule "external/voxcraft-sim"]
+	path = external/voxcraft-sim
+	url = https://github.com/voxcraft/voxcraft-sim

@@ -1,26 +1,48 @@
 """
-Lightweight Cellpose wrapper.
-Segments a list of image files and writes NumPy mask arrays
-(one `.npy` per input) to an output directory.
+Segmentation wrapper around Cellpose that
 
-Usage (inside Poetry env):
+1.  Loads one or more embryo images.
+2.  Segments them with the pretrained “cyto2” model.
+3.  Saves one *.npy* mask per image.
+4.  Logs simple metrics to MLflow.
+5.  Builds an HTML (and PDF if possible) phenotyping report and
+    logs it as an MLflow artifact.
+
+Usage
+-----
 >>> from pathlib import Path
 >>> from xeno_ml.segmentation.cellpose_runner import segment
->>> imgs = list(Path("data/raw/embryos").glob("*.jpg"))
->>> segment(imgs, Path("outputs/masks"), gpu=False)
+>>> imgs = Path("data/raw/embryos").glob("*.jpg")
+>>> segment(list(imgs), Path("outputs/masks"), gpu=False)
 """
 
 from pathlib import Path
 from typing import List
 
 import numpy as np
-from cellpose import models, io
+from cellpose import io, models
+import mlflow
 
 from xeno_ml.segmentation.mlflow_utils import new_run
+from xeno_ml.segmentation.report import build_report
 
-# ...
 
+# ─────────────────────────────────────────────────────────────────────────────
+# public API
+# ─────────────────────────────────────────────────────────────────────────────
 def segment(image_paths: List[Path], out_dir: Path, gpu: bool = False) -> None:
+    """
+    Segment each image in *image_paths* and write masks to *out_dir*.
+
+    Parameters
+    ----------
+    image_paths : list[Path]
+        List of PNG/JPG/TIFF files to segment.
+    out_dir : Path
+        Directory where `<stem>_mask.npy` (and report.*) are written.
+    gpu : bool, default False
+        If True and CUDA is available, Cellpose will use the GPU.
+    """
     if not image_paths:
         raise ValueError("No images supplied to segment().")
 
@@ -28,44 +50,22 @@ def segment(image_paths: List[Path], out_dir: Path, gpu: bool = False) -> None:
         mlflow.log_param("n_images", len(image_paths))
         mlflow.log_param("gpu", gpu)
 
+        # ── run Cellpose ────────────────────────────────────────────────────
         model = models.Cellpose(model_type="cyto2", gpu=gpu)
-        imgs  = [io.imread(str(p)) for p in image_paths]
-
+        imgs: list[np.ndarray] = [io.imread(str(p)) for p in image_paths]
         results = model.eval(imgs, diameter=None, normalize=True)
-        masks   = results[0]
+        masks: list[np.ndarray] = results[0]  # first element always masks list
 
-        areas = []
+        # ── save masks + collect simple stats ──────────────────────────────
         out_dir.mkdir(parents=True, exist_ok=True)
+        has_mask = []
         for img_path, mask in zip(image_paths, masks):
             np.save(out_dir / f"{img_path.stem}_mask.npy", mask.astype("uint16"))
-            areas.append(int(mask.sum() > 0))          # 1 if any mask pixels
+            has_mask.append(int((mask > 0).any()))
 
-        mlflow.log_metric("images_with_mask", sum(areas))
-        mlflow.log_metric("images_no_mask",   len(image_paths) - sum(areas))
+        mlflow.log_metric("images_with_mask", sum(has_mask))
+        mlflow.log_metric("images_no_mask", len(image_paths) - sum(has_mask))
 
-
-def segment(image_paths: List[Path], out_dir: Path, gpu: bool = False) -> None:
-    """Segment every image in `image_paths` with Cellpose cyto2 model.
-
-    Args:
-        image_paths: list of file paths (PNG/JPG/TIFF…).
-        out_dir: directory to write `<stem>_mask.npy` files.
-        gpu: set True if CUDA is available.
-    """
-    if not image_paths:
-        raise ValueError("No images supplied to segment().")
-
-    model = models.Cellpose(model_type="cyto2", gpu=gpu)
-    imgs = [io.imread(str(p)) for p in image_paths]
-
-    # --- run inference ----------------------------------------------------
-    results = model.eval(imgs, diameter=None, normalize=True)
-
-    # Cellpose returns (masks, flows, styles [, diams])
-    masks = results[0]
-    # we ignore the rest for now
-
-
-    out_dir.mkdir(parents=True, exist_ok=True)
-    for img_path, mask in zip(image_paths, masks):
-        np.save(out_dir / f"{img_path.stem}_mask.npy", mask.astype("uint16"))
+        # ── build & log report (HTML always, PDF if GTK present) ───────────
+        report_path = build_report(imgs, masks, out_dir / "report.pdf")
+        mlflow.log_artifact(str(report_path))

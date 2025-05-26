@@ -8,3 +8,6 @@ def test_segment_runs(tmp_path: Path):
     segment([sample], tmp_path, gpu=False)
     out_file = tmp_path / f"{sample.stem}_mask.npy"
     assert out_file.exists() and np.load(out_file).ndim == 2
+    assert (tmp_path / f"{sample.stem}_mask.npy").exists()
+    assert any(tmp_path.glob("report.*"))
+

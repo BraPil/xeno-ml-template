@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Segmentation Report</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; }
+    h1   { margin-bottom: 0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    th, td { border: 1px solid #888; padding: 4px 6px; text-align: center; }
+    img.thumb { width: 120px; border: 1px solid #ccc; }
+  </style>
+</head>
+<body>
+  <h1>Segmentation Report</h1>
+  <p><strong>Date:</strong> {{ date }} &nbsp; | &nbsp;
+     <strong>Images:</strong> {{ n_images }} &nbsp; | &nbsp;
+     <strong>Masks found:</strong> {{ masks_found }}</p>
+
+  <table>
+    <tr><th>File</th><th>Area&nbsp;(px)</th><th>Overlay</th></tr>
+  {% for row in rows %}
+    <tr>
+      <td>{{ row.name }}</td>
+      <td>{{ row.area }}</td>
+      <td><img class="thumb" src="{{ row.thumb }}"></td>
+    </tr>
+  {% endfor %}
+  </table>
+</body>
+</html>

@@ -1,0 +1,15 @@
+# Python artefacts
+__pycache__/**
+*.py[cod]
+*.pyd
+
+# Local builds
+build/
+extern/*/build*/
+
+# Run artefacts
+mlruns/
+outputs/
+
+# Misc
+.DS_Store
